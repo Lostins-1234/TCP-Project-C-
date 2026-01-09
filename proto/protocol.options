@@ -1,0 +1,11 @@
+AuthInit.serial_id max_size:64
+AuthInit.signature max_size:64
+AuthChallenge.random_number max_size:32
+AuthChallenge.signature max_size:64
+AuthResponse.signature max_size:64
+RangeProofRequest.c0 max_size:65
+RangeProofRequest.c1 max_size:65
+RangeProofRequest.c2 max_size:65
+RangeProofRequest.c3 max_size:65
+RangeProofRequest.range_c1 max_size:65
+RangeProofRequest.range_c2 max_size:65

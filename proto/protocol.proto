@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+// Wrapper for all messages
+message Message {
+    enum Type {
+        AUTH_INIT = 0;
+        AUTH_CHALLENGE = 1;
+        AUTH_RESPONSE = 2;
+        AUTH_RESULT = 3;
+        RANGE_PROOF_REQUEST = 4;
+        RANGE_PROOF_RESULT = 5;
+    }
+    Type type = 1;
+
+    oneof payload {
+        AuthInit auth_init = 2;
+        AuthChallenge auth_challenge = 3;
+        AuthResponse auth_response = 4;
+        AuthResult auth_result = 5;
+        RangeProofRequest range_proof_request = 6;
+        RangeProofResult range_proof_result = 7;
+    }
+}
+
+// 1. Client -> Server: Start Auth
+message AuthInit {
+    string serial_id = 1; // Client Serial ID
+    bytes signature = 2;  // Signature of SHA256(serial_id)
+}
+
+// 2. Server -> Client: Challenge
+message AuthChallenge {
+    bytes random_number = 1; // 32 bytes random
+    bytes signature = 2;     // Server signature of random_number
+}
+
+// 3. Client -> Server: Respond to Challenge
+message AuthResponse {
+    bytes signature = 1; // Client signature of random_number
+}
+
+// 4. Server -> Client: Result
+message AuthResult {
+    bool success = 1;
+}
+
+// 5. Client -> Server: Range Proof
+message RangeProofRequest {
+    // Range parameters
+    uint64 min_value = 1;
+    uint64 max_value = 2;
+    uint32 bit_length = 3;
+
+    // Commitments for 4-square representation: C0..C3
+    // Each commitment is a point (x, y) on the curve. 
+    // Compressed point is 33 bytes. Uncompressed 65 bytes.
+    // We will use raw bytes for simplicity or coordinate pairs.
+    // Nanopb is easiest with bytes.
+    bytes c0 = 4; // Commitment C0
+    bytes c1 = 5; // Commitment C1
+    bytes c2 = 6; // Commitment C2
+    bytes c3 = 7; // Commitment C3
+
+    // Range Proof commitments: c_1, c_2
+    bytes range_c1 = 8;
+    bytes range_c2 = 9;
+}
+
+// 6. Server -> Client: Result
+message RangeProofResult {
+    bool success = 1;
+}
