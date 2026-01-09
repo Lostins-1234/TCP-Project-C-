@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(secure_range_proof_server)
 
 set(CMAKE_CXX_STANDARD 17)
+add_definitions(-DUSE_BIP32_25519_CURVES=0)
 
 # Include Directories
 include_directories(
@@ -24,6 +25,11 @@ file(GLOB TREZOR_SOURCES
 # Exclude tests and tools from Trezor sources
 list(FILTER TREZOR_SOURCES EXCLUDE REGEX ".*tests/.*")
 list(FILTER TREZOR_SOURCES EXCLUDE REGEX ".*tools/.*")
+list(FILTER TREZOR_SOURCES EXCLUDE REGEX ".*nem\\.c")
+list(FILTER TREZOR_SOURCES EXCLUDE REGEX ".*monero/.*")
+list(FILTER TREZOR_SOURCES EXCLUDE REGEX ".*ripple/.*")
+list(FILTER TREZOR_SOURCES EXCLUDE REGEX ".*ethereum/.*")
+list(FILTER TREZOR_SOURCES EXCLUDE REGEX ".*bip32\\.c")
 # We might need to be specific if glob picks up too much (conflicting main, etc)
 # But trezor-crypto root .c files are mostly library code.
 # One issue: `trezor-crypto` defines some symbols that might conflict if not careful, but usually it's fine.
@@ -33,7 +39,7 @@ set(SERVER_SOURCES
     src/main.cpp
     src/Server.cpp
     src/CryptoHandler.cpp
-    server/include/protocol.pb.c
+    src/protocol.pb.c
 )
 
 # Find Boost

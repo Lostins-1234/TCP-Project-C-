@@ -17,13 +17,6 @@ std::vector<uint8_t> encode_message(const Message& msg) {
 
 Server::Server(boost::asio::io_context& io_context, short port)
     : io_context_(io_context), acceptor_(io_context, tcp::endpoint(tcp::v4(), port)) {
-    // Add a test client for demonstration
-    // Serial: "client123"
-    // PubKey: Need a real one. Verification will fail if mismatch.
-    // For now, let's accept ANY public key in the handshake if not implemented strictly, 
-    // BUT the requirements say "stored at server".
-    // I will mock this in CryptoHandler or provide a way to pass it.
-    // Let's rely on CryptoHandler's hardcoded or dynamic setup.
     do_accept();
 }
 
@@ -79,7 +72,6 @@ void Session::handle_message(const std::vector<uint8_t>& data) {
     pb_istream_t stream = pb_istream_from_buffer(data.data(), data.size());
     if (!pb_decode(&stream, Message_fields, &msg)) return;
 
-    // Dispatch
     switch (msg.type) {
         case Message_Type_AUTH_INIT:
             if (msg.which_payload == Message_auth_init_tag) 
@@ -99,57 +91,44 @@ void Session::handle_message(const std::vector<uint8_t>& data) {
 
 void Session::handle_auth_init(const AuthInit& auth_init) {
     std::string serial_id(auth_init.serial_id);
-    std::vector<uint8_t> sig(auth_init.signature, auth_init.signature + 64);
+    std::vector<uint8_t> sig(auth_init.signature.bytes, auth_init.signature.bytes + auth_init.signature.size);
 
-    // Verify signature on SHA256(serial_id)
     std::vector<uint8_t> data(serial_id.begin(), serial_id.end());
     std::vector<uint8_t> hash = crypto_handler_.sha256(data);
     
-    // NOTE: In a real system, we'd lookup the key.
-    // For this assignment, we might assume the client provided pubkey out of band
-    // OR we just accept it if we can't look it up yet (user didn't specify exchange).
-    // User says: "Public key corresponding to the client's private key is stored at the server."
-    // We'll trust CryptoHandler to have it.
+    // In a real system you must ADD the client key first. 
+    // This example assumes the server trusts the signature for the demo or has the key.
     
     if (crypto_handler_.verify_client_signature(serial_id, hash, sig)) {
         std::cout << "Client " << serial_id << " signature verified." << std::endl;
         client_serial_id_ = serial_id;
         
-        // Generate Challenge
         current_challenge_ = crypto_handler_.get_random_bytes(32);
-        std::vector<uint8_t> serv_sig = crypto_handler_.sign_message(current_challenge_); // Sign the RANDOM NUMBER directly? Or Hash?
-        // User says: "Server verifies the signature using hash to the random number" (This is for Client)
-        // "This message is also signed by the server using its private key." -> typically sign Hash(Random)
-        // User says: "Server verifies the client's signature using the client's public key and the random number."
         
         Message resp = Message_init_zero;
         resp.type = Message_Type_AUTH_CHALLENGE;
         resp.which_payload = Message_auth_challenge_tag;
         
-        memcpy(resp.payload.auth_challenge.random_number, current_challenge_.data(), 32);
-        resp.payload.auth_challenge.random_number_count = 32; // Not needed for fixed size, but good practice? Nanopb logic for fixed size array: count not present if max_size defined?
-        // with max_size, it's just bytes array.
+        memcpy(resp.payload.auth_challenge.random_number.bytes, current_challenge_.data(), 32);
+        resp.payload.auth_challenge.random_number.size = 32;
         
-        // Server signature
         std::vector<uint8_t> hash_rnd = crypto_handler_.sha256(current_challenge_);
         std::vector<uint8_t> s_sig = crypto_handler_.sign_message(hash_rnd);
-        memcpy(resp.payload.auth_challenge.signature, s_sig.data(), 64);
+        
+        memcpy(resp.payload.auth_challenge.signature.bytes, s_sig.data(), s_sig.size());
+        resp.payload.auth_challenge.signature.size = static_cast<uint8_t>(s_sig.size());
         
         send_message(resp);
     } else {
-        std::cout << "Auth failed for " << serial_id << std::endl;
-        // Construct Failure Result? Or just disconnect?
-        // Protocol flow says Server sends Random Number IF verified.
+        std::cout << "Auth verify failed for " << serial_id << std::endl;
     }
 }
 
 void Session::handle_auth_response(const AuthResponse& auth_response) {
     if (current_challenge_.empty()) return;
     
-    std::vector<uint8_t> sig(auth_response.signature, auth_response.signature + 64);
+    std::vector<uint8_t> sig(auth_response.signature.bytes, auth_response.signature.bytes + auth_response.signature.size);
     
-    // Server verifies client signature using random number.
-    // Assuming signing Hash(RandomNumber)
     std::vector<uint8_t> hash_rnd = crypto_handler_.sha256(current_challenge_);
     
     if (crypto_handler_.verify_client_signature(client_serial_id_, hash_rnd, sig)) {
@@ -176,12 +155,12 @@ void Session::handle_range_proof_request(const RangeProofRequest& req) {
     
     std::cout << "Received Range Proof Request. Range: [" << req.min_value << ", " << req.max_value << "]" << std::endl;
     
-    std::vector<uint8_t> c0(req.c0, req.c0 + 65);
-    std::vector<uint8_t> c1(req.c1, req.c1 + 65);
-    std::vector<uint8_t> c2(req.c2, req.c2 + 65);
-    std::vector<uint8_t> c3(req.c3, req.c3 + 65);
-    std::vector<uint8_t> rc1(req.range_c1, req.range_c1 + 65);
-    std::vector<uint8_t> rc2(req.range_c2, req.range_c2 + 65);
+    std::vector<uint8_t> c0(req.c0.bytes, req.c0.bytes + req.c0.size);
+    std::vector<uint8_t> c1(req.c1.bytes, req.c1.bytes + req.c1.size);
+    std::vector<uint8_t> c2(req.c2.bytes, req.c2.bytes + req.c2.size);
+    std::vector<uint8_t> c3(req.c3.bytes, req.c3.bytes + req.c3.size);
+    std::vector<uint8_t> rc1(req.range_c1.bytes, req.range_c1.bytes + req.range_c1.size);
+    std::vector<uint8_t> rc2(req.range_c2.bytes, req.range_c2.bytes + req.range_c2.size);
     
     bool result = crypto_handler_.verify_range_proof(
         req.min_value, req.max_value,

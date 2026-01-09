@@ -19,6 +19,14 @@ const MIN_VAL = 0n;
 const MAX_VAL = (1n << BigInt(RANGE_BITS)) - 1n;
 
 const clientKeys = CryptoUtils.generateKeys();
+// For testing, override with fixed key so server matches
+const fixedPrivKeyHex = "1111111111111111111111111111111111111111111111111111111111111111";
+const ec = new EC('secp256k1');
+const keyPair = ec.keyFromPrivate(fixedPrivKeyHex);
+const pubKey = Buffer.from(keyPair.getPublic(true, 'array'));
+// Update clientKeys object structure to match expected usage
+clientKeys.privateKey = Buffer.from(fixedPrivKeyHex, 'hex');
+clientKeys.publicKey = pubKey;
 console.log("Client Public Key (hex):", clientKeys.publicKey.toString('hex'));
 
 const socket = new net.Socket();

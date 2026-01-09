@@ -54,14 +54,14 @@ bool CryptoHandler::verify_client_signature(const std::string& serial_id, const 
     // signature is 64 bytes (r, s)? Or specific format?
     // Client usually sends 64 bytes.
     // curve: secp256k1
-    const curve_info* curve = &secp256k1_info;
+    const ecdsa_curve* curve = &secp256k1;
     return ecdsa_verify_digest(curve, client_pub->data(), signature.data(), msg_hash.data()) == 0;
 }
 
 std::vector<uint8_t> CryptoHandler::sign_message(const std::vector<uint8_t>& msg_hash) {
     std::vector<uint8_t> signature(64);
-    const curve_info* curve = &secp256k1_info;
-    // ecdsa_sign_digest(const curve_info *curve, const uint8_t *priv_key, const uint8_t *digest, uint8_t *sig, uint8_t *pby, int (*is_canonical)(uint8_t by, uint8_t sig[64]))
+    const ecdsa_curve* curve = &secp256k1;
+    // ecdsa_sign_digest(const ecdsa_curve *curve, const uint8_t *priv_key, const uint8_t *digest, uint8_t *sig, uint8_t *pby, int (*is_canonical)(uint8_t by, uint8_t sig[64]))
     uint8_t pby;
     ecdsa_sign_digest(curve, server_priv_key_.data(), msg_hash.data(), signature.data(), &pby, nullptr);
     return signature;
@@ -74,32 +74,15 @@ std::vector<uint8_t> CryptoHandler::get_random_bytes(size_t len) {
 }
 
 // Helper to add points: R = P + Q
-bool point_add(const curve_info* curve, const std::vector<uint8_t>& P_bytes, const std::vector<uint8_t>& Q_bytes, std::vector<uint8_t>& R_bytes) {
+bool point_add(const ecdsa_curve* curve, const std::vector<uint8_t>& P_bytes, const std::vector<uint8_t>& Q_bytes, std::vector<uint8_t>& R_bytes) {
     curve_point P, Q, R;
     // Uncompress/Read P
-    // For simplicity, assuming uncompressed (65 bytes) or compressed (33 bytes) is handled by built-in ecdsa functions?
-    // Trezor crypto `point_read_network` or similar?
-    // Looking at curves.h or ecdsa.h.
-    // `ecdsa_read_pubkey` reads 33 or 65 bytes.
     if (ecdsa_read_pubkey(curve, P_bytes.data(), &P) != 0) return false;
     if (ecdsa_read_pubkey(curve, Q_bytes.data(), &Q) != 0) return false;
 
     point_add(curve, &P, &Q);
     
     // Write back R
-    R_bytes.resize(33);
-    // point_write_network? No, usually separate.
-    // Use `point_compress`? 
-    // Usually `bn_write_be(P.x, ...)`
-    // Trezor internal functions for point serialization might be private.
-    // We can use public API `ecdsa_uncompress_pubkey` to get raw x,y but we want to store it.
-    // Let's use 65 bytes output uncompressed.
-    // Actually `pk_write` or similar?
-    // Let's check Trezor API again. 
-    // It has `point_multiply` but simple point addition might be `point_add` in `curves.c` but it's internal?
-    // It is in `curves.h`?
-    // `void point_add(const curve_info *curve, curve_point *cp1, const curve_point *cp2);` // cp1 += cp2
-    
     R_bytes.resize(65);
     R_bytes[0] = 0x04;
     bn_write_be(&P.x, R_bytes.data() + 1);
@@ -109,7 +92,7 @@ bool point_add(const curve_info* curve, const std::vector<uint8_t>& P_bytes, con
 
 // Helper to scalar mul: R = k * G
 std::vector<uint8_t> scalar_mul_G(uint64_t val) {
-    const curve_info* curve = &secp256k1_info;
+    const ecdsa_curve* curve = &secp256k1;
     curve_point R;
     bignum256 k;
     bn_read_uint64(val, &k);
@@ -125,7 +108,7 @@ std::vector<uint8_t> scalar_mul_G(uint64_t val) {
 
 // Helper: R = k * P
 // To mul by point, we need `point_multiply(curve, k, P, R)`
-// `void point_multiply(const curve_info *curve, const bignum256 *k, const curve_point *p, curve_point *res);`
+// `void point_multiply(const ecdsa_curve *curve, const bignum256 *k, const curve_point *p, curve_point *res);`
 
 bool CryptoHandler::verify_range_proof(uint64_t min_val, uint64_t max_val, 
                         const std::vector<uint8_t>& c0,
@@ -135,7 +118,7 @@ bool CryptoHandler::verify_range_proof(uint64_t min_val, uint64_t max_val,
                         const std::vector<uint8_t>& range_c1,
                         const std::vector<uint8_t>& range_c2) 
 {
-    const curve_info* curve = &secp256k1_info;
+    const ecdsa_curve* curve = &secp256k1;
     curve_point C0_p, C1_p, C2_p, C3_p, RC1_p, RC2_p;
     
     if (ecdsa_read_pubkey(curve, c0.data(), &C0_p) != 0) return false;
