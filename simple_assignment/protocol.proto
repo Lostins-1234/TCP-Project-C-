@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+// Fixed size byte array helper
+message Bytes32 {
+    bytes data = 1; 
+}
+
+// Authentication
+message AuthInit {
+    string client_id = 1;
+    bytes signature = 2; // Signed hash(client_id)
+}
+
+message AuthChallenge {
+    bytes random_data = 1;
+    bytes server_signature = 2;
+}
+
+message AuthResponse {
+    bytes signature = 1; // Signed hash(random_data)
+}
+
+message AuthResult {
+    bool success = 1;
+}
+
+// Range Proof
+message RangeProofRequest {
+    uint64 min_val = 1;
+    uint64 max_val = 2;
+    // Commitments
+    bytes c0 = 3;
+    bytes c1 = 4;
+    bytes c2 = 5;
+    bytes c3 = 6;
+    // Proofs
+    bytes range_c1 = 7;
+    bytes range_c2 = 8;
+}
+
+message RangeProofResult {
+    bool success = 1;
+}
+
+message Message {
+    oneof payload {
+        AuthInit auth_init = 1;
+        AuthChallenge auth_challenge = 2;
+        AuthResponse auth_response = 3;
+        AuthResult auth_result = 4;
+        RangeProofRequest range_proof_request = 5;
+        RangeProofResult range_proof_result = 6;
+    }
+}
