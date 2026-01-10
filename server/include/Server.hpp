@@ -14,6 +14,7 @@ using boost::asio::ip::tcp;
 class Server {
 public:
     Server(boost::asio::io_context& io_context, short port);
+    CryptoHandler* get_crypto_handler() { return &crypto_handler_; }
 
 private:
     void do_accept();
