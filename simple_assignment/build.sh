@@ -5,7 +5,7 @@ NANOPB="../deps/nanopb"
 TREZOR="../deps/trezor-crypto"
 
 # Generate Proto implementation
-../../deps/nanopb/generator/nanopb_generator.py protocol.proto
+python3 ../deps/nanopb/generator/nanopb_generator.py protocol.proto
 
 # Compile Server
 g++ -std=c++17 \
