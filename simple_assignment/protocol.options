@@ -1,0 +1,3 @@
+* max_size:65
+RangeProofRequest.min_val type:FT_STATIC
+RangeProofRequest.max_val type:FT_STATIC
